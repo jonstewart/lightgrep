@@ -30,14 +30,14 @@ SCOPE_TEST(executeByte) {
   ProgramPtr p(new Program(1, Instruction::makeByte('a')));
   Vm         s(p);
   Thread cur(&(*p)[0]);
-  SCOPE_ASSERT(s.execute(&cur, &b));
+  SCOPE_ASSERT(s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
 
   s.reset();
   b = 'c';
-  SCOPE_ASSERT(!s.execute(&cur, &b));
+  SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front());
 }
 
@@ -46,13 +46,13 @@ SCOPE_TEST(executeNotByte) {
   ProgramPtr p(new Program(1, Instruction::makeByte('a', true)));
   Vm         s(p);
   Thread cur(&(*p)[0]);
-  SCOPE_ASSERT(!s.execute(&cur, &b));
+  SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
 
   s.reset();
   b = 'c';
-  SCOPE_ASSERT(s.execute(&cur, &b));
+  SCOPE_ASSERT(s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
@@ -63,21 +63,21 @@ SCOPE_TEST(executeEither) {
   ProgramPtr p(new Program(1, Instruction::makeEither('z', '3')));
   Vm         s(p);
   Thread cur(&(*p)[0], 0, 0, 0);
-  SCOPE_ASSERT(s.execute(&cur, &b));
+  SCOPE_ASSERT(s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
 
   s.reset();
   b = '3';
-  SCOPE_ASSERT(s.execute(&cur, &b));
+  SCOPE_ASSERT(s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
 
   s.reset();
   b = '4';
-  SCOPE_ASSERT(!s.execute(&cur, &b));
+  SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front().PC);
@@ -88,21 +88,21 @@ SCOPE_TEST(executeNeither) {
   ProgramPtr p(new Program(1, Instruction::makeEither('z', '3', true)));
   Vm         s(p);
   Thread cur(&(*p)[0], 0, 0, 0);
-  SCOPE_ASSERT(!s.execute(&cur, &b));
+  SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front().PC);
 
   s.reset();
   b = '3';
-  SCOPE_ASSERT(!s.execute(&cur, &b));
+  SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front().PC);
 
   s.reset();
   b = '4';
-  SCOPE_ASSERT(s.execute(&cur, &b));
+  SCOPE_ASSERT(s.execute_tmp(&cur, &b));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
@@ -117,13 +117,13 @@ SCOPE_TEST(executeRange) {
     byte b = j;
 
     if ('c' <= j && j <= 't') {
-      SCOPE_ASSERT(s.execute(&cur, &b));
+      SCOPE_ASSERT(s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
     }
     else {
-      SCOPE_ASSERT(!s.execute(&cur, &b));
+      SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front().PC);
@@ -140,13 +140,13 @@ SCOPE_TEST(executeNotInRange) {
     byte b = j;
 
     if ('c' <= j && j <= 't') {
-      SCOPE_ASSERT(!s.execute(&cur, &b));
+      SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0]), s.active().front().PC);
     }
     else {
-      SCOPE_ASSERT(s.execute(&cur, &b));
+      SCOPE_ASSERT(s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
@@ -161,7 +161,7 @@ SCOPE_TEST(executeAny) {
   for (uint32_t i = 0; i < 256; ++i) {
     s.reset();
     byte b = i;
-    SCOPE_ASSERT(s.execute(&cur, &b));
+    SCOPE_ASSERT(s.execute_tmp(&cur, &b));
     SCOPE_ASSERT_EQUAL(1u, s.numActive());
     SCOPE_ASSERT_EQUAL(0u, s.numNext());
     SCOPE_ASSERT_EQUAL(&(*p)[1], s.active().front().PC);
@@ -184,7 +184,7 @@ SCOPE_TEST(executeJump) {
 
   Vm s(p);
   Thread cur(&(*p)[0], 0, 0, 0);
-  SCOPE_ASSERT(s.executeEpsilon(&cur, 0));
+  SCOPE_ASSERT(s.executeEpsilon_tmp(&cur, 0));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[7], s.active().front().PC);
@@ -204,19 +204,19 @@ SCOPE_TEST(executeJumpTableRange) {
   for (uint32_t i = 0; i < 256; ++i) {
     b = i;
     if ('a' == i) {
-      SCOPE_ASSERT(s.execute(&cur, &b));
+      SCOPE_ASSERT(s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0] + 3, 0, 0, 0), s.active().front());
     }
     else if ('b' == i) {
-      SCOPE_ASSERT(s.execute(&cur, &b));
+      SCOPE_ASSERT(s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0] + 3, 0, 0, 0), s.active().front());
     }
     else {
-      SCOPE_ASSERT(!s.execute(&cur, &b));
+      SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0], 0, 0, 0), s.active().front());
@@ -244,13 +244,13 @@ SCOPE_TEST(executeBitVector) {
   for (uint32_t i = 0; i < 256; ++i) {
     b = i;
     if (i == 'A' || i == 'a' || i == 'B' || i == 'b') {
-      SCOPE_ASSERT(s.execute(&cur, &b));
+      SCOPE_ASSERT(s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[9], 0, 0, 0), s.active().front());
     }
     else {
-      SCOPE_ASSERT(!s.execute(&cur, &b));
+      SCOPE_ASSERT(!s.execute_tmp(&cur, &b));
       SCOPE_ASSERT_EQUAL(1u, s.numActive());
       SCOPE_ASSERT_EQUAL(0u, s.numNext());
       SCOPE_ASSERT_EQUAL(Thread(&(*p)[0], 0, 0, 0), s.active().front());
@@ -272,7 +272,7 @@ SCOPE_TEST(executeLabel) {
 
   Vm s(p);
   Thread cur(&(*p)[0], 0, 0, 0);
-  SCOPE_ASSERT(s.executeEpsilon(&cur, 57));
+  SCOPE_ASSERT(s.executeEpsilon_tmp(&cur, 57));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[1], 34, 0, 0), s.active().front());
@@ -286,7 +286,7 @@ SCOPE_TEST(executeMatch) {
 
   Vm s(p);
   Thread cur(&(*p)[1], 0, 0, Thread::NONE);
-  SCOPE_ASSERT(s.executeEpsilon(&cur, 57));
+  SCOPE_ASSERT(s.executeEpsilon_tmp(&cur, 57));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(&(*p)[2], 0, 0, 57), s.active().front());
@@ -300,7 +300,7 @@ SCOPE_TEST(executeFork) {
 
   Vm s(p);
   Thread cur(&(*p)[0], 0, 0, 0);
-  SCOPE_ASSERT(s.executeEpsilon(&cur, 47));
+  SCOPE_ASSERT(s.executeEpsilon_tmp(&cur, 47));
   SCOPE_ASSERT_EQUAL(1u, s.numActive()); // cha-ching!
   SCOPE_ASSERT_EQUAL(1u, s.numNext());
   SCOPE_ASSERT_EQUAL(&(*p)[2], s.next()[0].PC);
@@ -313,7 +313,7 @@ SCOPE_TEST(executeFork) {
 //   (*p)[1] = Instruction::makeRaw24(3019);
 //   Vm         s(p);
 //   Thread cur(&(*p)[0], 0, 0, 0);
-//   SCOPE_ASSERT(s.executeEpsilon(&cur, 231));
+//   SCOPE_ASSERT(s.executeEpsilon_tmp(&cur, 231));
 //   SCOPE_ASSERT_EQUAL(1u, s.numActive());
 //   SCOPE_ASSERT_EQUAL(0u, s.numNext());
 //   SCOPE_ASSERT_EQUAL(Thread(&(*p)[1], 0, 0, 0), s.active()[0]);
@@ -323,7 +323,7 @@ SCOPE_TEST(executeFork) {
 // //  SCOPE_ASSERT(checkStates[5]);
 // //  SCOPE_ASSERT(checkStates[0]); // this bit is reserved specially to see whether we need to clear the set
 
-//   SCOPE_ASSERT(!s.executeEpsilon(&cur, 231));
+//   SCOPE_ASSERT(!s.executeEpsilon_tmp(&cur, 231));
 //   SCOPE_ASSERT_EQUAL(2, s.numActive());
 //   SCOPE_ASSERT_EQUAL(0u, s.numNext());
 //   SCOPE_ASSERT_EQUAL(Thread(0, 0, 0, 0), s.active()[1]); // thread died because the state was set
@@ -334,7 +334,7 @@ SCOPE_TEST(executeHalt) {
   Vm s(p);
 
   Thread cur(&(*p)[0], 0, 0, Thread::NONE);
-  SCOPE_ASSERT(!s.executeEpsilon(&cur, 317));
+  SCOPE_ASSERT(!s.executeEpsilon_tmp(&cur, 317));
   SCOPE_ASSERT_EQUAL(1u, s.numActive());
   SCOPE_ASSERT_EQUAL(0u, s.numNext());
   SCOPE_ASSERT_EQUAL(Thread(0, 0, 0, Thread::NONE), s.active().front());

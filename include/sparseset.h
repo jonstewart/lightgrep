@@ -33,8 +33,13 @@ public:
 
   // e had damn well better be less than Max, because we don't check
   bool find(uint32_t e) const {
-    const uint32_t i = Data[e] + Max;
-    return i < End && Data[i] == e;
+    if (End - Max <= 16) { // small, do a linear search
+      return std::find(&Data[Max], &Data[End], e) != &Data[End];
+    }
+    else {
+      const uint32_t i = Data[e] + Max;
+      return i < End && Data[i] == e;      
+    }
   }
 
   // e had damn well better be less than Max, because we don't check

@@ -92,7 +92,7 @@ SCOPE_TEST(makeRange) {
   SCOPE_ASSERT_EQUAL(RANGE_OP, i.OpCode);
   SCOPE_ASSERT_EQUAL(1u, i.wordSize());
   SCOPE_ASSERT_EQUAL('A', i.Op.T2.First);
-  SCOPE_ASSERT_EQUAL('Z', i.Op.T2.Last);
+  SCOPE_ASSERT_EQUAL('Z', i.Op.T2.First + i.Op.T2.Last);
   SCOPE_ASSERT((!i.Op.T2.Flags) & Instruction::NEGATE);
   SCOPE_ASSERT_EQUAL("Range 0x41/'A'-0x5a/'Z'", i.toString());
   SCOPE_EXPECT(Instruction::makeRange('Z', 'A'), std::range_error);
@@ -103,7 +103,7 @@ SCOPE_TEST(makeNotRange) {
   SCOPE_ASSERT_EQUAL(RANGE_OP, i.OpCode);
   SCOPE_ASSERT_EQUAL(1u, i.wordSize());
   SCOPE_ASSERT_EQUAL('A', i.Op.T2.First);
-  SCOPE_ASSERT_EQUAL('Z', i.Op.T2.Last);
+  SCOPE_ASSERT_EQUAL('Z', i.Op.T2.First + i.Op.T2.Last);
   SCOPE_ASSERT(i.Op.T2.Flags & Instruction::NEGATE);
   SCOPE_ASSERT_EQUAL("Range not 0x41/'A'-0x5a/'Z'", i.toString());
   SCOPE_EXPECT(Instruction::makeRange('Z', 'A', true), std::range_error);
@@ -140,7 +140,7 @@ SCOPE_TEST(makeJumpTableRange) {
   SCOPE_ASSERT_EQUAL(JUMP_TABLE_RANGE_OP, i.OpCode);
   SCOPE_ASSERT_EQUAL(1u, i.wordSize());
   SCOPE_ASSERT_EQUAL(33u, i.Op.T2.First);
-  SCOPE_ASSERT_EQUAL(45u, i.Op.T2.Last);
+  SCOPE_ASSERT_EQUAL(45u, i.Op.T2.First + i.Op.T2.Last);
   SCOPE_ASSERT_EQUAL("JmpTblRange 0x21/'!'-0x2d/'-'", i.toString());
   SCOPE_EXPECT(Instruction::makeJumpTableRange(1, 0), std::range_error);
 }

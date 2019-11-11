@@ -124,7 +124,7 @@ Vm::Vm(ProgramPtr prog):
   #endif
   Prog(prog),
   ProgEnd(&(*prog)[prog->size() - 2]), // not end, but penultimate, guaranteed to be a halt; threads die just short of the finish
-  First(), Active(1, &(*prog)[0]), Next(),
+  First(), Active(1, Thread(&(*prog)[0])), Next(),
   CheckLabels(prog->MaxCheck+1),
   LiveNoLabel(false), Live(prog->MaxLabel+1),
   MatchEnds(prog->MaxLabel+1), MatchEndsMax(0),
@@ -148,7 +148,7 @@ Vm::Vm(ProgramPtr prog):
   #endif
 
   if (_executeEpSequence<0>(&(*Prog)[0], t, 0)) {
-    Next.push_back(*t);
+    Next.emplace_back(*t);
   }
 
   #ifdef LBT_TRACE_ENABLED
@@ -194,11 +194,15 @@ inline bool Vm::_execute(const Instruction* const base, ThreadList::iterator t, 
 
   switch (instr.OpCode) {
   case JUMP_TABLE_RANGE_OP:
-    if (instr.Op.T2.First <= *cur && *cur <= instr.Op.T2.Last) {
-      const uint32_t addr = *reinterpret_cast<const uint32_t* const>(t->PC + 1 + (*cur - instr.Op.T2.First));
-      if (addr) {
-        t->jump(base, addr);
-        return true;
+//    if (instr.Op.T2.First <= *cur && *cur <= instr.Op.T2.Last) {
+    {
+      auto diff = unsigned(*cur - instr.Op.T2.First);
+      if (diff <= instr.Op.T2.Last) {
+        const uint32_t addr = *reinterpret_cast<const uint32_t* const>(t->PC + 1 + diff);
+        if (addr) {
+          t->jump(base, addr);
+          return true;
+        }
       }
     }
     break;
@@ -225,7 +229,7 @@ inline bool Vm::_execute(const Instruction* const base, ThreadList::iterator t, 
     break;
 
   case RANGE_OP:
-    if ((instr.Op.T2.First <= *cur && *cur <= instr.Op.T2.Last) ^ (instr.Op.T2.Flags & Instruction::NEGATE)) {
+    if ((unsigned(*cur - instr.Op.T2.First) <= instr.Op.T2.Last) ^ (instr.Op.T2.Flags & Instruction::NEGATE)) {
       t->advance(InstructionSize<RANGE_OP>::VAL);
       return true;
     }
@@ -334,7 +338,7 @@ inline bool Vm::_executeEpsilon(const Instruction* const base, ThreadList::itera
     }
 
   case JUMP_OP:
-    t->jump(base, *reinterpret_cast<const uint32_t* const>(t->PC+1));
+    t->jump(base, *reinterpret_cast<const uint32_t* const>(t->PC + 1));
     return true;
 
   case CHECK_HALT_OP:
@@ -390,7 +394,7 @@ inline void Vm::_executeThread(const Instruction* const base, ThreadList::iterat
 
   if (alive && _executeEpSequence<10>(base, t, offset)) {
     _markLive(t->Label);
-    Next.push_back(*t);
+    Next.emplace_back(*t);
   }
   #else
   if (_execute(base, t, cur) && _executeEpSequence<10>(base, t, offset)) {
@@ -435,26 +439,38 @@ inline bool Vm::_executeEpSequence(const Instruction* const base, ThreadList::it
 }
 
 inline void Vm::_executeNewThreads(const Instruction* const base, ThreadList::iterator t, const byte* const cur, const uint64_t offset) {
-  const size_t oldsize = Active.size();
-
-  for (t = First.begin(); t != First.end(); ++t) {
-    Active.emplace_back(
+  // const size_t oldsize = Active.size();
+  Active.reserve_additional(First.size());
+  t = First.begin();
+  // for (t = First.begin(); t != First.end(); ++t) {
+  do {
+    // Active.emplace_back(
+    //   t->PC, Thread::NOLABEL,
+    //   #ifdef LBT_TRACE_ENABLED
+    //   NextId++,
+    //   #endif
+    //   offset, Thread::NONE
+    // );
+    Active.unsafe_push_back(Thread(
       t->PC, Thread::NOLABEL,
       #ifdef LBT_TRACE_ENABLED
       NextId++,
       #endif
       offset, Thread::NONE
-    );
+    ));
 
     #ifdef LBT_TRACE_ENABLED
     new_thread_json.insert(Active.back().Id);
     #endif
-  }
 
-  for (t = Active.begin() + oldsize; t != Active.end(); ++t) {
-    _executeThread(base, t, cur, offset);
-    // ++count;
-  }
+    _executeThread(base, Active.end() - 1, cur, offset);
+    ++t;
+  } while (t != First.end());
+
+  // for (t = Active.begin() + oldsize; t != Active.end(); ++t) {
+  //   _executeThread(base, t, cur, offset);
+  //   // ++count;
+  // }
 }
 
 inline void Vm::_executeFrame(const std::bitset<256*256>& filter, ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset) {
@@ -467,7 +483,7 @@ inline void Vm::_executeFrame(const std::bitset<256*256>& filter, ThreadList::it
   }
 
   // create new threads at this offset
-  if (filter[*reinterpret_cast<const uint16_t* const>(cur+Prog->FilterOff)]) {
+  if (filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)]) {
     _executeNewThreads(base, t, cur, offset);
   }
   // ThreadCountHist.resize(count + 1, 0);
@@ -502,17 +518,17 @@ inline void Vm::_cleanup() {
 
 void Vm::cleanup() { _cleanup(); }
 
-bool Vm::execute(Thread* t, const byte* const cur) {
-  Active.push_back(*t);
-  return execute(Active.end()-1, cur);
+bool Vm::execute_tmp(Thread* t, const byte* const cur) {
+  Active.emplace_back(*t);
+  return execute(Active.end() - 1, cur);
 }
 
 bool Vm::execute(ThreadList::iterator t, const byte* const cur) {
   return _execute(&(*Prog)[0], t, cur);
 }
 
-bool Vm::executeEpsilon(Thread* t, uint64_t offset) {
-  Active.push_back(*t);
+bool Vm::executeEpsilon_tmp(Thread* t, uint64_t offset) {
+  Active.emplace_back(*t);
   return executeEpsilon(Active.end()-1, offset);
 }
 
@@ -533,12 +549,13 @@ void Vm::startsWith(const byte* const beg, const byte* const end, const uint64_t
   const Instruction* const base = &(*Prog)[0];
   uint64_t offset = startOffset;
 
-  const byte* const filterOff = beg+Prog->FilterOff;
+  const byte* const filterOff = beg + Prog->FilterOff;
 
   if (end - beg == 1 || (filterOff < end - 1 &&
       Prog->Filter[*(reinterpret_cast<const uint16_t*>(filterOff))]))
   {
     for (ThreadList::const_iterator t(First.begin()); t != First.end(); ++t) {
+//      Active.emplace_back(t->PC, Thread::NOLABEL, offset, Thread::NONE);
       Active.emplace_back(t->PC, Thread::NOLABEL, offset, Thread::NONE);
     }
 

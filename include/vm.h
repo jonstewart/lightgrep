@@ -27,10 +27,104 @@
 #include "vm_interface.h"
 #include "thread.h"
 
+template<class T>
+class fast_vec {
+public:
+  typedef T* iterator;
+  typedef const T* const_iterator;
+
+  fast_vec(): Array(), Num(0), Max(0) { reserve(128); }
+  fast_vec(uint64_t num, const T& val): Array(), Num(0), Max(0) {
+    reserve(std::max(num, 128ull));
+    for (uint64_t i = 0; i < num; ++i) {
+      push_back(val);
+    }
+  }
+
+  const T& front() const { return (Array.get())[0]; }
+  T& front() { return (Array.get())[0]; }
+
+  const T& back() const { return (Array.get())[Num - 1]; }
+  T& back() { return (Array.get())[Num - 1]; }
+
+  const T* begin() const { return Array.get(); }
+  T* begin() { return Array.get(); }
+
+  const T* end() const { return &(Array.get())[Num]; }
+  T* end() { return &(Array.get())[Num]; }
+
+  uint64_t size() const { return Num; }
+
+  bool empty() const { return Num == 0; }
+
+  const T& operator[](uint64_t i) const { return (Array.get())[i]; }
+  T& operator[](uint64_t i) { return (Array.get())[i]; }
+
+  void swap(fast_vec<T>& o) {
+    Array.swap(o.Array);
+    std::swap(Num, o.Num);
+    std::swap(Max, o.Max);
+  }
+
+  void push_back(const T& x) {
+    if (Num == Max) {
+      _reserve(Max + (Max >> 1));
+    }
+    (Array.get())[Num] = x;
+    ++Num;
+  }
+
+  void unsafe_push_back(const T& x) {
+    (Array.get())[Num] = x;
+    ++Num;
+  }
+
+  template<typename ...Args>
+  void emplace_back(Args&& ...args) {
+    if (Num == Max) {
+      _reserve(Max + (Max >> 1));
+    }
+    (Array.get())[Num] = std::move(T(std::forward<Args>(args) ...));
+    ++Num;
+  }
+
+  void clear() {
+    Num = 0;
+  }
+
+  void reserve(uint64_t newMax) {
+    if (newMax > Max) {
+      _reserve(std::max(newMax, Max + (Max >> 1)));
+    }
+  }
+
+  void reserve_additional(uint64_t margin) {
+    uint64_t needed = Num + margin;
+    uint64_t newMax = Max + (Max >> 1);
+    if (needed > Max) {
+      _reserve(std::max(needed, newMax));
+    }
+  }
+
+private:
+  void _reserve(uint64_t newMax) {
+    std::unique_ptr<T[]> newData(new T[newMax]);
+    std::copy(begin(), end(), newData.get());
+    Array.swap(newData);
+    Max = newMax;
+  }
+
+  std::unique_ptr<T[]> Array;
+
+  uint64_t Num,
+           Max;
+};
+
 class Vm: public VmInterface {
 public:
 
-  typedef std::vector<Thread> ThreadList;
+  typedef fast_vec<Thread> ThreadList;
+  // typedef std::vector<Thread> ThreadList;
 
   Vm(ProgramPtr prog);
 
@@ -47,10 +141,10 @@ public:
   }
   #endif
 
-  bool execute(Thread* t, const byte* const cur);
+  bool execute_tmp(Thread* t, const byte* const cur);
   bool execute(ThreadList::iterator t, const byte* const cur);
 
-  bool executeEpsilon(Thread* t, uint64_t offset);
+  bool executeEpsilon_tmp(Thread* t, uint64_t offset);
   bool executeEpsilon(ThreadList::iterator t, uint64_t offset);
 
   void executeFrame(const byte* const cur, uint64_t offset, HitCallback hitFn, void* userData);

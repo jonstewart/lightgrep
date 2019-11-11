@@ -57,7 +57,7 @@ std::string Instruction::toString() const {
     break;
   case RANGE_OP:
     buf << "Range " << testNot(Op.T2.Flags) << "0x" << HexCode<byte>(Op.T2.First)
-      << "/'" << Op.T2.First << "'-0x" << HexCode<byte>(Op.T2.Last) << "/'" << Op.T2.Last << '\'';
+      << "/'" << Op.T2.First << "'-0x" << HexCode<byte>(Op.T2.First + Op.T2.Last) << "/'" << char(Op.T2.First + Op.T2.Last) << '\'';
     break;
   case ANY_OP:
     buf << "Any";
@@ -69,7 +69,7 @@ std::string Instruction::toString() const {
     buf << "Jump 0x" << HexCode<uint32_t>(*reinterpret_cast<const uint32_t*>(this+1)) << '/' << std::dec << (*reinterpret_cast<const uint32_t*>(this+1));
     break;
   case JUMP_TABLE_RANGE_OP:
-    buf << "JmpTblRange 0x" << HexCode<byte>(Op.T2.First) << "/'" << Op.T2.First << "'-0x" << HexCode<byte>(Op.T2.Last) << "/'" << Op.T2.Last << '\'';
+    buf << "JmpTblRange 0x" << HexCode<byte>(Op.T2.First) << "/'" << Op.T2.First << "'-0x" << HexCode<byte>(Op.T2.First + Op.T2.Last) << "/'" << char(Op.T2.First + Op.T2.Last) << '\'';
     break;
   case FORK_OP:
     buf << "Fork 0x" << HexCode<uint32_t>(*reinterpret_cast<const uint32_t*>(this+1)) << '/' << std::dec << (*reinterpret_cast<const uint32_t*>(this+1));
@@ -123,7 +123,7 @@ Instruction Instruction::makeRange(byte first, byte last, bool negate) {
   Instruction i;
   i.OpCode = RANGE_OP;
   i.Op.T2.First = first;
-  i.Op.T2.Last = last;
+  i.Op.T2.Last = last - first; // saves computation in Vm
   i.Op.T2.Flags = (negate ? NEGATE: 0);
   return i;
 }
