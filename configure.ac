@@ -169,6 +169,16 @@ fi
 
 AC_SUBST([ICU_CPPFLAGS])
 
+case "$host" in
+*-*-mingw*)
+  for i in $ICU_LIBS ; do
+    ICU_LDFLAGS+=$(echo $i | grep '^-L')
+  done
+esac
+
+AC_SUBST([ICU_CPPFLAGS])
+AC_SUBST([ICU_LDFLAGS])
+
 #
 # Boost
 #
@@ -192,19 +202,14 @@ fi
 
 # FIXME: doesn't always find -mt version of boost libs,
 # e.g. for filesystem and system
-AX_BOOST_FILESYSTEM
-if test "x$ax_cv_boost_filesystem" != "xyes"; then
-  AC_MSG_ERROR([Failed to find Boost filesystem library.])
-fi
-
 AX_BOOST_PROGRAM_OPTIONS
 if test "x$ax_cv_boost_program_options" != "xyes"; then
   AC_MSG_ERROR([Failed to find Boost program_options library.])
 fi
 
-AX_BOOST_SYSTEM
-if test "x$ax_cv_boost_system" != "xyes"; then
-  AC_MSG_ERROR([Failed to find Boost system library.])
+AX_BOOST_ASIO
+if test "x$ax_cv_boost_asio" != "xyes"; then
+  AC_MSG_ERROR([Failed to find Boost asio library.])
 fi
 
 case "$host" in
@@ -212,11 +217,6 @@ case "$host" in
   # Boost ASIO needs ws2_32 and mswsock on Windows
   BOOST_ASIO_LIB="-lws2_32 -lmswsock"
   AC_SUBST([BOOST_ASIO_LIB])
-
-  # FIXME: wrong boost_system lib gets detected!
-  BOOST_SYSTEM_LIB=`echo "$BOOST_SYSTEM_LIB" | sed 's/.dll/-mt/'`
-  # FIXME: wrong boost_filesystem lib gets detected!
-  BOOST_FILESYSTEM_LIB=`echo "$BOOST_FILESYSTEM_LIB" | sed 's/.dll/-mt/'`
   ;;
 esac
 
@@ -321,6 +321,12 @@ AM_CONDITIONAL([BUILD_DLL], [test "x$enable_shared" = "xyes" && echo "$host" | g
 AC_SUBST([LG_LIB_LDFLAGS])
 
 #
+# Test Dependencies
+#
+
+AX_PKG_CHECK_MODULES([CATCH2], [], [catch2-with-main])
+
+#
 # Customer name
 #
 AC_ARG_WITH([customer],
@@ -339,6 +345,52 @@ AX_VALGRIND_DFLT([helgrind], [off])
 AX_VALGRIND_DFLT([drd], [off])
 AX_VALGRIND_DFLT([memcheck], [on])
 AX_VALGRIND_CHECK
+
+#
+# Python bindings
+#
+AC_ARG_ENABLE([python],
+  [AS_HELP_STRING([--enable-python], [build Python bindings])])
+
+AS_IF(
+  [test "x$enable_python" = "xyes"],
+  [AC_PATH_PROG([PYTHON], [python])]
+)
+
+AM_CONDITIONAL([BUILD_PYTHON], [test "x$enable_python" = "xyes"])
+
+#
+# Java bindings
+#
+AC_ARG_ENABLE([java],
+  [AS_HELP_STRING([--enable-java], [build Java bindings])])
+
+AS_IF(
+  [test "x$enable_java" = "xyes"],
+  [
+    # calls AC_PATH_PROG using JAVAC; setting it here with AC_PATH_PROG messes
+    # up the check, so do this first
+    saved_JAVAC="$JAVAC"
+    JAVAC=
+    AX_JNI_INCLUDE_DIR
+    JAVAC="$saved_JAVAC"
+
+    for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
+      JNI_CPPFLAGS="$JNI_CPPFLAGS -I$JNI_INCLUDE_DIR"
+    done
+
+    AC_SUBST([JNI_CPPFLAGS])
+
+    JUNIT_JARS=/usr/share/java/junit.jar:/usr/share/java/hamcrest/hamcrest.jar
+    AC_SUBST([JUNIT_JARS])
+
+    AC_PATH_PROG([JAVA], [java])
+    AC_PATH_PROG([JAR], [jar])
+    AC_PATH_PROG([JAVAC], [javac])
+  ]
+)
+
+AM_CONDITIONAL([BUILD_JAVA], [test "x$enable_java" = "xyes"])
 
 #
 # Cleanup flags
