@@ -81,7 +81,7 @@ private:
   uint64_t ReserveSize;
   std::shared_ptr<Encoder> Enc;
   NFAPtr Fsm;
-  std::shared_ptr<TransitionFactory> TransFac;
+  std::unique_ptr<TransitionFactory> TransFac;
 
   // these are all temporaries we need frequently
   std::unique_ptr<byte[]> TempBuf;

@@ -24,6 +24,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <memory>
 #include <utility>
 #include <cctype>
 
@@ -63,7 +64,7 @@ NFABuilder::NFABuilder():
   CurLabel(0),
   ReserveSize(0),
   Fsm(new NFA(1)),
-  TransFac(new TransitionFactory())
+  TransFac(std::make_unique<TransitionFactory>())
 {
   setEncoder(std::shared_ptr<Encoder>(new ASCII));
   init();
