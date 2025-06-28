@@ -152,11 +152,8 @@ public:
     case ByteSetStateType:
       {
         const ByteSetState* bss = static_cast<const ByteSetState*>(t);
-        // Use the optimized for_each_set_bit method for better performance
-        bss->Allowed.for_each_set_bit([&result](uint64_t bit) {
-          result = hash_combine(result, std::hash<uint64_t>{}(bit));
-        });
-        return result;
+        // Use std::hash for bitset which is much more efficient
+        return hash_combine(result, std::hash<std::bitset<256>>{}(bss->Allowed));
       }
     default:
       return result;  // Fallback for unknown types
