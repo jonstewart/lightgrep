@@ -25,6 +25,98 @@
 #include "transition.h"
 #include "states.h"
 
+// Forward declaration from states.h
+struct TransitionComparator {
+  //
+  // This defines a total ordering over Transitions, such that
+  //
+  //   ByteState < EitherState < RangeState < ByteSetState
+  //
+  // and for two Transitions of the same type, the one with the
+  // lexicographically least data is the lesser.
+  //
+  bool operator()(const Transition* a, const Transition* b) const {
+    switch (a->type()) {
+    case ByteStateType:
+      switch (b->type()) {
+      case ByteStateType:
+        return static_cast<const ByteState*>(a)->Byte <
+               static_cast<const ByteState*>(b)->Byte;
+      case EitherStateType:
+      case RangeStateType:
+      case ByteSetStateType:
+        return true;
+      default:
+        THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << b->type());
+      }
+    case EitherStateType:
+      switch (b->type()) {
+      case ByteStateType:
+        return false;
+      case EitherStateType:
+        {
+          const EitherState* ae = static_cast<const EitherState*>(a);
+          const EitherState* be = static_cast<const EitherState*>(b);
+
+          if (ae->Byte1 < be->Byte1) {
+            return true;
+          }
+          else if (ae->Byte1 > be->Byte1) {
+            return false;
+          }
+          else {
+            return ae->Byte2 < be->Byte2;
+          }
+        }
+      case RangeStateType:
+      case ByteSetStateType:
+        return true;
+      default:
+        THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << b->type());
+      }
+    case RangeStateType:
+      switch (b->type()) {
+      case ByteStateType:
+      case EitherStateType:
+        return false;
+      case RangeStateType:
+        {
+          const RangeState* ar = static_cast<const RangeState*>(a);
+          const RangeState* br = static_cast<const RangeState*>(b);
+
+          if (ar->First < br->First) {
+            return true;
+          }
+          else if (ar->First > br->First) {
+            return false;
+          }
+          else {
+            return ar->Last < br->Last;
+          }
+        }
+      case ByteSetStateType:
+        return true;
+      default:
+        THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << b->type());
+      }
+    case ByteSetStateType:
+      switch (b->type()) {
+      case ByteStateType:
+      case EitherStateType:
+      case RangeStateType:
+        return false;
+      case ByteSetStateType:
+        return static_cast<const ByteSetState*>(a)->Allowed <
+               static_cast<const ByteSetState*>(b)->Allowed;
+      default:
+        THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << b->type());
+      }
+    default:
+      THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << a->type());
+    }
+  }
+};
+
 // Comparator for unique_ptr<Transition> that supports heterogeneous lookup.
 // This allows std::set::find() to work with raw Transition* pointers
 // while maintaining the original ordering semantics.
