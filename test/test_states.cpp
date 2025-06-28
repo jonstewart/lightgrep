@@ -32,6 +32,19 @@ void testClone(const TransitionType& toCopy, byte* text) {
   REQUIRE(text+1 == dupe->allowed(text, text+1));
 }
 
+template<class TransitionType>
+void testModernClone(const TransitionType& toCopy, byte* text) {
+  auto dupe = toCopy.clone();
+  REQUIRE(dupe != nullptr);
+  REQUIRE(text+1 == dupe->allowed(text, text+1));
+  
+  // Test that we get the same behavior as the original
+  ByteSet originalBits, clonedBits;
+  toCopy.getBytes(originalBits);
+  dupe->getBytes(clonedBits);
+  REQUIRE(originalBits == clonedBits);
+}
+
 TEST_CASE("byteAccept") {
   const ByteState lit('a');
   byte ch[2] = "a";
@@ -126,4 +139,30 @@ TEST_CASE("charClassState") {
   ByteSet* setPtr = reinterpret_cast<ByteSet*>(&p[1]);
   REQUIRE(set == *setPtr);
   REQUIRE("ABab" == s.label());
+}
+
+TEST_CASE("modernCloneMethods") {
+  // Test ByteState clone with unique_ptr
+  const ByteState byteState('a');
+  byte ch = 'a';
+  testModernClone(byteState, &ch);
+  
+  // Test EitherState clone with unique_ptr
+  const EitherState eitherState('A', 'a');
+  ch = 'A';
+  testModernClone(eitherState, &ch);
+  
+  // Test RangeState clone with unique_ptr
+  const RangeState rangeState('0', '9');
+  ch = '5';
+  testModernClone(rangeState, &ch);
+  
+  // Test ByteSetState clone with unique_ptr
+  ByteSet set;
+  set.reset();
+  set.set('A');
+  set.set('a');
+  const ByteSetState byteSetState(set);
+  ch = 'A';
+  testModernClone(byteSetState, &ch);
 }

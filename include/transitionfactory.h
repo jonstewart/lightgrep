@@ -325,8 +325,8 @@ public:
   }
 
   Transition* get(Transition* t) {
-    // Create a temporary unique_ptr for lookup
-    std::unique_ptr<Transition> temp(t->clone());
+    // Create a temporary unique_ptr for lookup using modern clone method
+    auto temp = t->clone();
     auto i = Exemplars.find(temp);
     if (i == Exemplars.end()) {
       // Store the cloned transition and return raw pointer

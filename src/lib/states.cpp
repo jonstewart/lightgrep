@@ -20,6 +20,7 @@
 
 #include <cctype>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 
 void printByte(std::ostream& out, byte b) {
@@ -53,6 +54,10 @@ ByteState* ByteState::clone(void* buffer) const {
   return buffer == 0 ? new ByteState(*this): new(buffer) ByteState(*this);
 }
 
+std::unique_ptr<Transition> ByteState::clone() const {
+  return std::unique_ptr<Transition>(new ByteState(*this));
+}
+
 std::string ByteState::label() const {
   std::ostringstream buf;
   printByte(buf, Byte);
@@ -66,6 +71,10 @@ bool EitherState::toInstruction(Instruction* addr) const {
 
 EitherState* EitherState::clone(void* buffer) const {
   return buffer == 0 ? new EitherState(*this): new(buffer) EitherState(*this);
+}
+
+std::unique_ptr<Transition> EitherState::clone() const {
+  return std::unique_ptr<Transition>(new EitherState(*this));
 }
 
 std::string EitherState::label() const {
@@ -84,6 +93,10 @@ RangeState* RangeState::clone(void* buffer) const {
   return 0 == buffer ? new RangeState(*this): new(buffer) RangeState(*this);
 }
 
+std::unique_ptr<Transition> RangeState::clone() const {
+  return std::unique_ptr<Transition>(new RangeState(*this));
+}
+
 std::string RangeState::label() const {
   std::ostringstream buf;
   printRange(buf, First, Last);
@@ -99,6 +112,10 @@ bool ByteSetState::toInstruction(Instruction* addr) const {
 
 ByteSetState* ByteSetState::clone(void* buffer) const {
   return 0 == buffer ? new ByteSetState(*this): new(buffer) ByteSetState(*this);
+}
+
+std::unique_ptr<Transition> ByteSetState::clone() const {
+  return std::unique_ptr<Transition>(new ByteSetState(*this));
 }
 
 std::string ByteSetState::label() const {

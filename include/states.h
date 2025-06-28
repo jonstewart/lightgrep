@@ -50,6 +50,7 @@ public:
   virtual byte type() const { return ByteStateType; }
 
   virtual ByteState* clone(void* buffer) const;
+  virtual std::unique_ptr<Transition> clone() const override;
 
   virtual size_t numInstructions() const { return 1; };
   virtual bool toInstruction(Instruction* addr) const;
@@ -86,6 +87,7 @@ public:
   virtual size_t objSize() const { return sizeof(*this); }
 
   virtual EitherState* clone(void* buffer) const;
+  virtual std::unique_ptr<Transition> clone() const override;
 
   virtual size_t numInstructions() const { return 1; };
   virtual bool toInstruction(Instruction* addr) const;
@@ -121,6 +123,7 @@ public:
   virtual size_t objSize() const { return sizeof(*this); }
 
   virtual RangeState* clone(void* buffer) const;
+  virtual std::unique_ptr<Transition> clone() const override;
 
   virtual size_t numInstructions() const { return 1; };
   virtual bool toInstruction(Instruction* addr) const;
@@ -163,6 +166,7 @@ public:
   virtual size_t objSize() const { return sizeof(*this); }
 
   virtual ByteSetState* clone(void* buffer) const;
+  virtual std::unique_ptr<Transition> clone() const override;
 
   virtual size_t numInstructions() const { return 9; }
   virtual bool toInstruction(Instruction* addr) const;
