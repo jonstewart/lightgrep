@@ -18,8 +18,10 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <memory>
 #include <set>
+#include <unordered_set>
 
 #include "byteset.h"
 #include "transition.h"
@@ -114,6 +116,92 @@ struct TransitionComparator {
     default:
       THROW_RUNTIME_ERROR_WITH_OUTPUT("Impossible! " << a->type());
     }
+  }
+};
+
+// Hash function for Transition objects
+struct TransitionHash {
+  std::size_t operator()(const Transition* t) const {
+    std::size_t h1 = std::hash<byte>{}(t->type());
+    
+    switch (t->type()) {
+    case ByteStateType:
+      {
+        const ByteState* bs = static_cast<const ByteState*>(t);
+        return h1 ^ (std::hash<byte>{}(bs->Byte) << 1);
+      }
+    case EitherStateType:
+      {
+        const EitherState* es = static_cast<const EitherState*>(t);
+        return h1 ^ (std::hash<byte>{}(es->Byte1) << 1) ^ (std::hash<byte>{}(es->Byte2) << 2);
+      }
+    case RangeStateType:
+      {
+        const RangeState* rs = static_cast<const RangeState*>(t);
+        return h1 ^ (std::hash<byte>{}(rs->First) << 1) ^ (std::hash<byte>{}(rs->Last) << 2);
+      }
+    case ByteSetStateType:
+      {
+        const ByteSetState* bss = static_cast<const ByteSetState*>(t);
+        // Hash the bitset by combining hash of individual words
+        std::size_t hash = h1;
+        // Convert ByteSet to its underlying representation for hashing
+        for (std::size_t i = 0; i < 256; ++i) {
+          if (bss->Allowed.test(i)) {
+            hash ^= std::hash<std::size_t>{}(i) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
+          }
+        }
+        return hash;
+      }
+    default:
+      return h1;  // Fallback for unknown types
+    }
+  }
+};
+
+// Equality function for Transition objects
+struct TransitionEqual {
+  bool operator()(const Transition* a, const Transition* b) const {
+    if (a->type() != b->type()) {
+      return false;
+    }
+    
+    switch (a->type()) {
+    case ByteStateType:
+      return static_cast<const ByteState*>(a)->Byte == 
+             static_cast<const ByteState*>(b)->Byte;
+    case EitherStateType:
+      {
+        const EitherState* ae = static_cast<const EitherState*>(a);
+        const EitherState* be = static_cast<const EitherState*>(b);
+        return ae->Byte1 == be->Byte1 && ae->Byte2 == be->Byte2;
+      }
+    case RangeStateType:
+      {
+        const RangeState* ar = static_cast<const RangeState*>(a);
+        const RangeState* br = static_cast<const RangeState*>(b);
+        return ar->First == br->First && ar->Last == br->Last;
+      }
+    case ByteSetStateType:
+      return static_cast<const ByteSetState*>(a)->Allowed == 
+             static_cast<const ByteSetState*>(b)->Allowed;
+    default:
+      return false;  // Unknown types are never equal
+    }
+  }
+};
+
+// Hash function for unique_ptr<Transition>
+struct TransitionUniquePtrHash {
+  std::size_t operator()(const std::unique_ptr<Transition>& t) const {
+    return TransitionHash{}(t.get());
+  }
+};
+
+// Equality function for unique_ptr<Transition>
+struct TransitionUniquePtrEqual {
+  bool operator()(const std::unique_ptr<Transition>& a, const std::unique_ptr<Transition>& b) const {
+    return TransitionEqual{}(a.get(), b.get());
   }
 };
 
@@ -233,11 +321,12 @@ public:
   }
 
   Transition* get(Transition* t) {
-    // Use heterogeneous lookup to find transition by raw pointer
-    auto i = Exemplars.find(t);
+    // Create a temporary unique_ptr for lookup
+    std::unique_ptr<Transition> temp(t->clone());
+    auto i = Exemplars.find(temp);
     if (i == Exemplars.end()) {
-      // Clone the transition and store it in a unique_ptr
-      auto result = Exemplars.insert(std::unique_ptr<Transition>(t->clone()));
+      // Store the cloned transition and return raw pointer
+      auto result = Exemplars.insert(std::move(temp));
       return result.first->get();
     } else {
       // Return raw pointer to existing transition
@@ -246,7 +335,7 @@ public:
   }
 
 private:
-  std::set<std::unique_ptr<Transition>, TransitionUniquePtrComparator> Exemplars;
+  std::unordered_set<std::unique_ptr<Transition>, TransitionUniquePtrHash, TransitionUniquePtrEqual> Exemplars;
 
   // Local states so we don't have to create one on each lookup
   ByteState Byte;

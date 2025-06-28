@@ -61,6 +61,8 @@ private:
   byte Byte;
 
   friend struct TransitionComparator;
+  friend struct TransitionHash;
+  friend struct TransitionEqual;
   friend class TransitionFactory;
 };
 
@@ -96,6 +98,8 @@ private:
   byte Byte1, Byte2;
 
   friend struct TransitionComparator;
+  friend struct TransitionHash;
+  friend struct TransitionEqual;
   friend class TransitionFactory;
 };
 
@@ -128,6 +132,8 @@ private:
   byte First, Last;
 
   friend struct TransitionComparator;
+  friend struct TransitionHash;
+  friend struct TransitionEqual;
   friend class TransitionFactory;
 };
 
@@ -168,6 +174,8 @@ private:
   ByteSet Allowed;
 
   friend struct TransitionComparator;
+  friend struct TransitionHash;
+  friend struct TransitionEqual;
   friend class TransitionFactory;
 };
 

@@ -90,7 +90,7 @@ TEST_CASE("transitionFactoryUniquePtrMemoryManagement") {
   REQUIRE(bs3.test('b'));
 }
 
-TEST_CASE("transitionFactoryUnorderedSetBehavior", "[!shouldfail]") {
+TEST_CASE("transitionFactoryUnorderedSetBehavior") {
   // Test that TransitionFactory works correctly with unordered_set
   // by verifying hash and equality behavior for all transition types
   TransitionFactory tfac;
