@@ -35,5 +35,5 @@ public:
   virtual void setDebugRange(uint64_t beg, uint64_t end) = 0;
   #endif
 
-  static std::shared_ptr<VmInterface> create(ProgramPtr prog);
+  static std::unique_ptr<VmInterface> create(ProgramPtr prog);
 };

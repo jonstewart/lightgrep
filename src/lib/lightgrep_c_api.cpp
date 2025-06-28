@@ -423,7 +423,7 @@ namespace {
     if (src + pmap_size > end) {
       return nullptr;
     }
-    hProg->PMap = PatternMap::unmarshall(src, pmap_size);
+    hProg->PMap = std::shared_ptr<PatternMap>(PatternMap::unmarshall(src, pmap_size));
     src += pmap_size;
 
     if (src + sizeof(uint64_t) > end) {
@@ -497,7 +497,7 @@ void lg_destroy_context(LG_HCONTEXT hCtx) {
 }
 
 void lg_reset_context(LG_HCONTEXT hCtx) {
-  exceptionTrap(std::bind(&VmInterface::reset, hCtx->Impl));
+  exceptionTrap(std::bind(&VmInterface::reset, hCtx->Impl.get()));
 }
 
 void lg_starts_with(LG_HCONTEXT hCtx,
@@ -507,7 +507,7 @@ void lg_starts_with(LG_HCONTEXT hCtx,
                    void* userData,
                    LG_HITCALLBACK_FN callbackFn)
 {
-  exceptionTrap(std::bind(&VmInterface::startsWith, hCtx->Impl, (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData));
+  exceptionTrap(std::bind(&VmInterface::startsWith, hCtx->Impl.get(), (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData));
 }
 
 uint64_t lg_search(LG_HCONTEXT hCtx,
@@ -517,14 +517,14 @@ uint64_t lg_search(LG_HCONTEXT hCtx,
                        void* userData,
                        LG_HITCALLBACK_FN callbackFn)
 {
-  return trapWithRetval(std::bind(&VmInterface::search, hCtx->Impl, (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData), std::numeric_limits<uint64_t>::max());
+  return trapWithRetval(std::bind(&VmInterface::search, hCtx->Impl.get(), (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData), std::numeric_limits<uint64_t>::max());
 }
 
 void lg_closeout_search(LG_HCONTEXT hCtx,
                         void* userData,
                         LG_HITCALLBACK_FN callbackFn)
 {
-  exceptionTrap(std::bind(&VmInterface::closeOut, hCtx->Impl, callbackFn, userData));
+  exceptionTrap(std::bind(&VmInterface::closeOut, hCtx->Impl.get(), callbackFn, userData));
 }
 
 uint64_t lg_search_resolve(LG_HCONTEXT hCtx,
@@ -534,5 +534,5 @@ uint64_t lg_search_resolve(LG_HCONTEXT hCtx,
                        void* userData,
                        LG_HITCALLBACK_FN callbackFn)
 {
-  return trapWithRetval(std::bind(&VmInterface::searchResolve, hCtx->Impl, (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData), std::numeric_limits<uint64_t>::max());
+  return trapWithRetval(std::bind(&VmInterface::searchResolve, hCtx->Impl.get(), (const byte*) bufStart, (const byte*) bufEnd, startOffset, callbackFn, userData), std::numeric_limits<uint64_t>::max());
 }

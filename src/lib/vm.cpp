@@ -23,6 +23,7 @@
 #include <cctype>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 
 std::ostream& operator<<(std::ostream& out, const Thread& t) {
   out << "{ \"PC\":" << std::hex << t.PC
@@ -112,8 +113,8 @@ void Thread::output_json(std::ostream& out, const Instruction* const base, byte 
 }
 #endif
 
-std::shared_ptr<VmInterface> VmInterface::create(ProgramPtr prog) {
-  return std::shared_ptr<VmInterface>(new Vm(prog));
+std::unique_ptr<VmInterface> VmInterface::create(ProgramPtr prog) {
+  return std::make_unique<Vm>(prog);
 }
 
 Vm::Vm(ProgramPtr prog):

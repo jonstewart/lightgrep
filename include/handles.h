@@ -51,7 +51,7 @@ struct ProgramHandle {
 };
 
 struct ContextHandle {
-  std::shared_ptr<VmInterface> Impl;
+  std::unique_ptr<VmInterface> Impl;
 };
 
 struct DecoderHandle {

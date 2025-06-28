@@ -26,10 +26,10 @@
 #include <memory>
 
 struct Properties {
-  Properties(): Deterministic(true), TransFac(std::make_unique<TransitionFactory>()) {}
+  Properties(): Deterministic(true), TransFac(std::make_shared<TransitionFactory>()) {}
 
   bool Deterministic;
-  std::unique_ptr<TransitionFactory> TransFac;
+  std::shared_ptr<TransitionFactory> TransFac;
 };
 
 struct Glushkov {

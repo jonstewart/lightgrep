@@ -64,7 +64,7 @@ NFABuilder::NFABuilder():
   CurLabel(0),
   ReserveSize(0),
   Fsm(new NFA(1)),
-  TransFac(std::make_unique<TransitionFactory>())
+  TransFac(std::make_shared<TransitionFactory>())
 {
   setEncoder(std::shared_ptr<Encoder>(new ASCII));
   init();

@@ -65,7 +65,7 @@ public:
 
   bool build(const ParseTree& tree);
 
-  std::shared_ptr<TransitionFactory> getTransFac() { return TransFac; }
+  std::shared_ptr<TransitionFactory> getTransFac() const { return Fsm->TransFac; }
 
 private:
   void init();
@@ -81,7 +81,7 @@ private:
   uint64_t ReserveSize;
   std::shared_ptr<Encoder> Enc;
   NFAPtr Fsm;
-  std::unique_ptr<TransitionFactory> TransFac;
+  std::shared_ptr<TransitionFactory> TransFac;
 
   // these are all temporaries we need frequently
   std::unique_ptr<byte[]> TempBuf;

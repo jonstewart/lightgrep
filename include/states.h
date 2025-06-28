@@ -36,25 +36,25 @@ public:
   ByteState(byte b): Byte(b) {}
   virtual ~ByteState() {}
 
-  virtual const byte* allowed(const byte* beg, const byte*) const {
+  virtual const byte* allowed(const byte* beg, const byte*) const override {
     return *beg == Byte ? beg + 1 : beg;
   }
 
-  virtual ByteSet& orBytes(ByteSet& bs) const {
+  virtual ByteSet& orBytes(ByteSet& bs) const override {
     bs.set(Byte);
     return bs;
   }
 
-  virtual size_t objSize() const { return sizeof(*this); }
+  virtual size_t objSize() const override { return sizeof(*this); }
 
-  virtual byte type() const { return ByteStateType; }
+  virtual byte type() const override { return ByteStateType; }
 
-  virtual ByteState* clone(void* buffer) const;
+  virtual ByteState* clone(void* buffer) const override;
   virtual std::unique_ptr<Transition> clone() const override;
 
-  virtual size_t numInstructions() const { return 1; };
-  virtual bool toInstruction(Instruction* addr) const;
-  virtual std::string label() const;
+  virtual size_t numInstructions() const override { return 1; };
+  virtual bool toInstruction(Instruction* addr) const override;
+  virtual std::string label() const override;
 
 private:
   ByteState(const ByteState& x): Transition(), Byte(x.Byte) {}
@@ -72,26 +72,26 @@ public:
   EitherState(byte one, byte two): Byte1(one), Byte2(two) {}
   virtual ~EitherState() {}
 
-  virtual const byte* allowed(const byte* beg, const byte*) const {
+  virtual const byte* allowed(const byte* beg, const byte*) const override {
     return *beg == Byte1 || *beg == Byte2 ? beg + 1 : beg;
   }
 
-  virtual ByteSet& orBytes(ByteSet& bs) const {
+  virtual ByteSet& orBytes(ByteSet& bs) const override {
     bs.set(Byte1);
     bs.set(Byte2);
     return bs;
   }
 
-  virtual byte type() const { return EitherStateType; }
+  virtual byte type() const override { return EitherStateType; }
 
-  virtual size_t objSize() const { return sizeof(*this); }
+  virtual size_t objSize() const override { return sizeof(*this); }
 
-  virtual EitherState* clone(void* buffer) const;
+  virtual EitherState* clone(void* buffer) const override;
   virtual std::unique_ptr<Transition> clone() const override;
 
-  virtual size_t numInstructions() const { return 1; };
-  virtual bool toInstruction(Instruction* addr) const;
-  virtual std::string label() const;
+  virtual size_t numInstructions() const override { return 1; };
+  virtual bool toInstruction(Instruction* addr) const override;
+  virtual std::string label() const override;
 
 private:
   EitherState(const EitherState& x):
@@ -110,24 +110,24 @@ public:
   RangeState(byte first, byte last): First(first), Last(last) {}
   virtual ~RangeState() {}
 
-  virtual const byte* allowed(const byte* beg, const byte*) const {
+  virtual const byte* allowed(const byte* beg, const byte*) const override {
     return First <= *beg && *beg <= Last ? beg+1: beg;
   }
 
-  virtual ByteSet& orBytes(ByteSet& bs) const {
+  virtual ByteSet& orBytes(ByteSet& bs) const override {
     return bs.set(First, Last+1, true);
   }
 
-  virtual byte type() const { return RangeStateType; }
+  virtual byte type() const override { return RangeStateType; }
 
-  virtual size_t objSize() const { return sizeof(*this); }
+  virtual size_t objSize() const override { return sizeof(*this); }
 
-  virtual RangeState* clone(void* buffer) const;
+  virtual RangeState* clone(void* buffer) const override;
   virtual std::unique_ptr<Transition> clone() const override;
 
-  virtual size_t numInstructions() const { return 1; };
-  virtual bool toInstruction(Instruction* addr) const;
-  virtual std::string label() const;
+  virtual size_t numInstructions() const override { return 1; };
+  virtual bool toInstruction(Instruction* addr) const override;
+  virtual std::string label() const override;
 
 private:
   RangeState(const RangeState& x): Transition(), First(x.First), Last(x.Last) {}
@@ -152,25 +152,25 @@ public:
 
   virtual ~ByteSetState() {}
 
-  virtual const byte* allowed(const byte* beg, const byte*) const {
+  virtual const byte* allowed(const byte* beg, const byte*) const override {
     return Allowed[*beg] ? beg+1 : beg;
   }
 
-  virtual ByteSet& orBytes(ByteSet& bs) const {
+  virtual ByteSet& orBytes(ByteSet& bs) const override {
     bs |= Allowed;
     return bs;
   }
 
-  virtual byte type() const { return ByteSetStateType; }
+  virtual byte type() const override { return ByteSetStateType; }
 
-  virtual size_t objSize() const { return sizeof(*this); }
+  virtual size_t objSize() const override { return sizeof(*this); }
 
-  virtual ByteSetState* clone(void* buffer) const;
+  virtual ByteSetState* clone(void* buffer) const override;
   virtual std::unique_ptr<Transition> clone() const override;
 
-  virtual size_t numInstructions() const { return 9; }
-  virtual bool toInstruction(Instruction* addr) const;
-  virtual std::string label() const;
+  virtual size_t numInstructions() const override { return 9; }
+  virtual bool toInstruction(Instruction* addr) const override;
+  virtual std::string label() const override;
 
 private:
   ByteSetState(const ByteSetState& x): Transition(), Allowed(x.Allowed) {}
