@@ -61,3 +61,31 @@ TEST_CASE("getSmallestManyTest") {
   ebs.set('b');
   smallestTester<ByteSetState>(ebs);
 }
+
+TEST_CASE("transitionFactoryUniquePtrMemoryManagement", "[!shouldfail]") {
+  // Test that TransitionFactory properly manages memory with unique_ptr
+  // and provides consistent pointer identity for equivalent transitions
+  TransitionFactory tfac;
+  
+  // Get the same transition multiple times
+  Transition* t1 = tfac.getByte('a');
+  Transition* t2 = tfac.getByte('a');
+  
+  // Should return the same pointer for equivalent transitions
+  REQUIRE(t1 == t2);
+  
+  // Get different transitions
+  Transition* t3 = tfac.getByte('b');
+  REQUIRE(t1 != t3);
+  
+  // Verify transitions work correctly
+  ByteSet bs1, bs2, bs3;
+  t1->getBytes(bs1);
+  t2->getBytes(bs2);
+  t3->getBytes(bs3);
+  
+  REQUIRE(bs1 == bs2);
+  REQUIRE(bs1 != bs3);
+  REQUIRE(bs1.test('a'));
+  REQUIRE(bs3.test('b'));
+}
