@@ -121,40 +121,45 @@ struct TransitionComparator {
 
 // Hash function for Transition objects
 struct TransitionHash {
+private:
+  // Efficient hash combining using the standard approach
+  static std::size_t hash_combine(std::size_t seed, std::size_t value) {
+    return seed ^ (value + 0x9e3779b9 + (seed << 6) + (seed >> 2));
+  }
+
+public:
   std::size_t operator()(const Transition* t) const {
-    std::size_t h1 = std::hash<byte>{}(t->type());
+    std::size_t result = std::hash<byte>{}(t->type());
     
     switch (t->type()) {
     case ByteStateType:
       {
         const ByteState* bs = static_cast<const ByteState*>(t);
-        return h1 ^ (std::hash<byte>{}(bs->Byte) << 1);
+        return hash_combine(result, std::hash<byte>{}(bs->Byte));
       }
     case EitherStateType:
       {
         const EitherState* es = static_cast<const EitherState*>(t);
-        return h1 ^ (std::hash<byte>{}(es->Byte1) << 1) ^ (std::hash<byte>{}(es->Byte2) << 2);
+        result = hash_combine(result, std::hash<byte>{}(es->Byte1));
+        return hash_combine(result, std::hash<byte>{}(es->Byte2));
       }
     case RangeStateType:
       {
         const RangeState* rs = static_cast<const RangeState*>(t);
-        return h1 ^ (std::hash<byte>{}(rs->First) << 1) ^ (std::hash<byte>{}(rs->Last) << 2);
+        result = hash_combine(result, std::hash<byte>{}(rs->First));
+        return hash_combine(result, std::hash<byte>{}(rs->Last));
       }
     case ByteSetStateType:
       {
         const ByteSetState* bss = static_cast<const ByteSetState*>(t);
-        // Hash the bitset by combining hash of individual words
-        std::size_t hash = h1;
-        // Convert ByteSet to its underlying representation for hashing
-        for (std::size_t i = 0; i < 256; ++i) {
-          if (bss->Allowed.test(i)) {
-            hash ^= std::hash<std::size_t>{}(i) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-          }
-        }
-        return hash;
+        // Use the optimized for_each_set_bit method for better performance
+        bss->Allowed.for_each_set_bit([&result, this](uint64_t bit) {
+          result = hash_combine(result, std::hash<uint64_t>{}(bit));
+        });
+        return result;
       }
     default:
-      return h1;  // Fallback for unknown types
+      return result;  // Fallback for unknown types
     }
   }
 };
@@ -191,17 +196,19 @@ struct TransitionEqual {
   }
 };
 
-// Hash function for unique_ptr<Transition>
-struct TransitionUniquePtrHash {
+// Hash function for unique_ptr<Transition> - delegates to raw pointer version
+struct TransitionUniquePtrHash : TransitionHash {
+  using TransitionHash::operator();
   std::size_t operator()(const std::unique_ptr<Transition>& t) const {
-    return TransitionHash{}(t.get());
+    return TransitionHash::operator()(t.get());
   }
 };
 
-// Equality function for unique_ptr<Transition>
-struct TransitionUniquePtrEqual {
+// Equality function for unique_ptr<Transition> - delegates to raw pointer version
+struct TransitionUniquePtrEqual : TransitionEqual {
+  using TransitionEqual::operator();
   bool operator()(const std::unique_ptr<Transition>& a, const std::unique_ptr<Transition>& b) const {
-    return TransitionEqual{}(a.get(), b.get());
+    return TransitionEqual::operator()(a.get(), b.get());
   }
 };
 
