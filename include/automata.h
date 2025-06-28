@@ -23,11 +23,13 @@
 #include "transitionfactory.h"
 #include "vectorfamily.h"
 
+#include <memory>
+
 struct Properties {
-  Properties(): Deterministic(true), TransFac(new TransitionFactory()) {}
+  Properties(): Deterministic(true), TransFac(std::make_unique<TransitionFactory>()) {}
 
   bool Deterministic;
-  std::shared_ptr<TransitionFactory> TransFac;
+  std::unique_ptr<TransitionFactory> TransFac;
 };
 
 struct Glushkov {
