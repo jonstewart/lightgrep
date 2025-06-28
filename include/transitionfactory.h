@@ -25,18 +25,23 @@
 #include "transition.h"
 #include "states.h"
 
-// Comparator for unique_ptr<Transition> that supports heterogeneous lookup
+// Comparator for unique_ptr<Transition> that supports heterogeneous lookup.
+// This allows std::set::find() to work with raw Transition* pointers
+// while maintaining the original ordering semantics.
 struct TransitionUniquePtrComparator {
-  using is_transparent = void;  // Enable heterogeneous lookup
+  using is_transparent = void;  // Enable heterogeneous lookup in C++14+
   
+  // Compare two unique_ptr<Transition>
   bool operator()(const std::unique_ptr<Transition>& a, const std::unique_ptr<Transition>& b) const {
     return TransitionComparator{}(a.get(), b.get());
   }
   
+  // Compare unique_ptr<Transition> with raw Transition*
   bool operator()(const std::unique_ptr<Transition>& a, const Transition* b) const {
     return TransitionComparator{}(a.get(), b);
   }
   
+  // Compare raw Transition* with unique_ptr<Transition>
   bool operator()(const Transition* a, const std::unique_ptr<Transition>& b) const {
     return TransitionComparator{}(a, b.get());
   }
@@ -136,11 +141,14 @@ public:
   }
 
   Transition* get(Transition* t) {
+    // Use heterogeneous lookup to find transition by raw pointer
     auto i = Exemplars.find(t);
     if (i == Exemplars.end()) {
+      // Clone the transition and store it in a unique_ptr
       auto result = Exemplars.insert(std::unique_ptr<Transition>(t->clone()));
       return result.first->get();
     } else {
+      // Return raw pointer to existing transition
       return i->get();
     }
   }
