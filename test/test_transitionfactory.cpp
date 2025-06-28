@@ -89,3 +89,51 @@ TEST_CASE("transitionFactoryUniquePtrMemoryManagement") {
   REQUIRE(bs1.test('a'));
   REQUIRE(bs3.test('b'));
 }
+
+TEST_CASE("transitionFactoryUnorderedSetBehavior", "[!shouldfail]") {
+  // Test that TransitionFactory works correctly with unordered_set
+  // by verifying hash and equality behavior for all transition types
+  TransitionFactory tfac;
+  
+  // Test ByteState transitions
+  Transition* byte_a1 = tfac.getByte('a');
+  Transition* byte_a2 = tfac.getByte('a');  // Should get same instance
+  Transition* byte_b = tfac.getByte('b');   // Should get different instance
+  
+  REQUIRE(byte_a1 == byte_a2);  // Same content should return same pointer
+  REQUIRE(byte_a1 != byte_b);   // Different content should return different pointer
+  
+  // Test EitherState transitions
+  Transition* either_ab1 = tfac.getEither('a', 'b');
+  Transition* either_ab2 = tfac.getEither('a', 'b');  // Should get same instance
+  Transition* either_cd = tfac.getEither('c', 'd');   // Should get different instance
+  
+  REQUIRE(either_ab1 == either_ab2);  // Same content should return same pointer
+  REQUIRE(either_ab1 != either_cd);   // Different content should return different pointer
+  
+  // Test RangeState transitions
+  Transition* range_az1 = tfac.getRange('a', 'z');
+  Transition* range_az2 = tfac.getRange('a', 'z');    // Should get same instance
+  Transition* range_09 = tfac.getRange('0', '9');     // Should get different instance
+  
+  REQUIRE(range_az1 == range_az2);  // Same content should return same pointer
+  REQUIRE(range_az1 != range_09);   // Different content should return different pointer
+  
+  // Test ByteSetState transitions
+  ByteSet bs1, bs2, bs3;
+  bs1.set('a'); bs1.set('b'); bs1.set('c');
+  bs2.set('a'); bs2.set('b'); bs2.set('c');  // Same as bs1
+  bs3.set('x'); bs3.set('y'); bs3.set('z');  // Different from bs1
+  
+  Transition* bset1 = tfac.getByteSet(bs1);
+  Transition* bset2 = tfac.getByteSet(bs2);  // Should get same instance
+  Transition* bset3 = tfac.getByteSet(bs3);  // Should get different instance
+  
+  REQUIRE(bset1 == bset2);  // Same content should return same pointer
+  REQUIRE(bset1 != bset3);  // Different content should return different pointer
+  
+  // Test that different types are always different (important for unordered_set)
+  REQUIRE(byte_a1 != either_ab1);  // Different types should never be equal
+  REQUIRE(byte_a1 != range_az1);   // Different types should never be equal
+  REQUIRE(byte_a1 != bset1);       // Different types should never be equal
+}
