@@ -25,15 +25,29 @@
 #include "transition.h"
 #include "states.h"
 
+// Comparator for unique_ptr<Transition> that supports heterogeneous lookup
+struct TransitionUniquePtrComparator {
+  using is_transparent = void;  // Enable heterogeneous lookup
+  
+  bool operator()(const std::unique_ptr<Transition>& a, const std::unique_ptr<Transition>& b) const {
+    return TransitionComparator{}(a.get(), b.get());
+  }
+  
+  bool operator()(const std::unique_ptr<Transition>& a, const Transition* b) const {
+    return TransitionComparator{}(a.get(), b);
+  }
+  
+  bool operator()(const Transition* a, const std::unique_ptr<Transition>& b) const {
+    return TransitionComparator{}(a, b.get());
+  }
+};
+
 class TransitionFactory {
 public:
   TransitionFactory():
     Byte(0), Either(0, 0), Range(0, 0), BSet(ByteSet()) {}
 
-  ~TransitionFactory() {
-    std::for_each(Exemplars.begin(), Exemplars.end(),
-                  std::default_delete<Transition>());
-  }
+  ~TransitionFactory() = default;
 
   Transition* getByte(byte b) {
     Byte.Byte = b;
@@ -123,11 +137,16 @@ public:
 
   Transition* get(Transition* t) {
     auto i = Exemplars.find(t);
-    return i == Exemplars.end() ? *Exemplars.insert(t->clone()).first : *i;
+    if (i == Exemplars.end()) {
+      auto result = Exemplars.insert(std::unique_ptr<Transition>(t->clone()));
+      return result.first->get();
+    } else {
+      return i->get();
+    }
   }
 
 private:
-  std::set<Transition*, TransitionComparator> Exemplars;
+  std::set<std::unique_ptr<Transition>, TransitionUniquePtrComparator> Exemplars;
 
   // Local states so we don't have to create one on each lookup
   ByteState Byte;

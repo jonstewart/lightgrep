@@ -62,7 +62,7 @@ TEST_CASE("getSmallestManyTest") {
   smallestTester<ByteSetState>(ebs);
 }
 
-TEST_CASE("transitionFactoryUniquePtrMemoryManagement", "[!shouldfail]") {
+TEST_CASE("transitionFactoryUniquePtrMemoryManagement") {
   // Test that TransitionFactory properly manages memory with unique_ptr
   // and provides consistent pointer identity for equivalent transitions
   TransitionFactory tfac;
