@@ -583,31 +583,59 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   const std::bitset<256*256>& filter = Prog->Filter;
   const byte* const filterEnd = end - Prog->FilterOff - 1;
 
-  // TODO: Add NEON optimization back once performance issues are resolved
-
   uint64_t offset = startOffset;
-
   const byte* cur = beg;
-  for ( ; cur + 65536 <= filterEnd; ) {
-    const byte* chunkEnd = cur + 65536;
+
+  // Process in optimized 128-byte chunks with unrolled bigram checking
+  constexpr size_t CHUNK_SIZE = 128;
+  
+  for ( ; cur + CHUNK_SIZE <= filterEnd; ) {
+    const byte* chunkEnd = cur + CHUNK_SIZE;
     
-    // Process 64KB chunk - optimized for performance
-    for ( ; cur < chunkEnd; ++cur, ++offset) {
-      #ifdef LBT_TRACE_ENABLED
-      open_frame_json(std::clog, offset, cur);
-      #endif
+    // Optimized bigram checking with manual unrolling and early termination
+    bool hasAcceptedBigrams = false;
+    const byte* p = cur;
+    const byte* pEnd = chunkEnd - 1;
+    const int filterOffset = Prog->FilterOff;
+    
+    // Process 4 bigrams at once to improve instruction-level parallelism
+    for ( ; p + 4 <= pEnd && !hasAcceptedBigrams; p += 4) {
+      // Load 4 consecutive bigrams with explicit prefetching
+      __builtin_prefetch(p + 64, 0, 3);
+      
+      const uint16_t* bigrams = reinterpret_cast<const uint16_t*>(p + filterOffset);
+      hasAcceptedBigrams = filter[bigrams[0]] || filter[bigrams[1]] || 
+                          filter[bigrams[2]] || filter[bigrams[3]];
+    }
+    
+    // Handle remaining bytes
+    for ( ; p < pEnd && !hasAcceptedBigrams; ++p) {
+      hasAcceptedBigrams = filter[*reinterpret_cast<const uint16_t*>(p + filterOffset)];
+    }
+    
+    if (hasAcceptedBigrams) {
+      // Process each byte in the chunk since we found accepted bigrams
+      for ( ; cur < chunkEnd; ++cur, ++offset) {
+        #ifdef LBT_TRACE_ENABLED
+        open_frame_json(std::clog, offset, cur);
+        #endif
 
-      _executeFrame(filter, Active.begin(), base, cur, offset);
+        _executeFrame(filter, Active.begin(), base, cur, offset);
 
-      #ifdef LBT_TRACE_ENABLED
-      close_frame_json(std::clog, offset);
-      #endif
+        #ifdef LBT_TRACE_ENABLED
+        close_frame_json(std::clog, offset);
+        #endif
 
-      _cleanup();
+        _cleanup();
+      }
+    } else {
+      // Skip this entire chunk - no accepted bigrams found
+      cur = chunkEnd;
+      offset += CHUNK_SIZE;
     }
   }
   
-  // Process remainder
+  // Process remainder bytes individually
   for ( ; cur < filterEnd; ++cur, ++offset) {
     #ifdef LBT_TRACE_ENABLED
     open_frame_json(std::clog, offset, cur);
@@ -622,6 +650,7 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
     _cleanup();
   }
 
+  // Process final bytes without filter
   for ( ; cur < end; ++cur, ++offset) {
     #ifdef LBT_TRACE_ENABLED
     open_frame_json(std::clog, offset, cur);
@@ -635,8 +664,6 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
 
     _cleanup();
   }
-
-  // std::cerr << "Max number of active threads was " << maxActive << ", average was " << total/(end - beg) << std::endl;
 
   // check for remaining live threads
   return _startOfLeftmostLiveThread(offset);
