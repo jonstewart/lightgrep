@@ -584,6 +584,24 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   uint64_t offset = startOffset;
 
   const byte* cur = beg;
+  for ( ; cur + 65536 <= filterEnd; ) {
+    const byte* chunkEnd = cur + 65536;
+    for ( ; cur < chunkEnd; ++cur, ++offset) {
+      #ifdef LBT_TRACE_ENABLED
+      open_frame_json(std::clog, offset, cur);
+      #endif
+
+      _executeFrame(filter, Active.begin(), base, cur, offset);
+
+      #ifdef LBT_TRACE_ENABLED
+      close_frame_json(std::clog, offset);
+      #endif
+
+      _cleanup();
+    }
+  }
+  
+  // Process remainder
   for ( ; cur < filterEnd; ++cur, ++offset) {
     #ifdef LBT_TRACE_ENABLED
     open_frame_json(std::clog, offset, cur);
