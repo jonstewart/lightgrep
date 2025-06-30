@@ -85,6 +85,7 @@ private:
 
   void _executeFrame(const std::bitset<256*256>& filter, ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset);
   void _executeFrame(ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset);
+  void _executeFrame(ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset, const uint64_t newThreadOffset);
 
   void _cleanup();
 

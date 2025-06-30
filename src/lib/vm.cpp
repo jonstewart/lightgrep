@@ -489,6 +489,24 @@ inline void Vm::_executeFrame(ThreadList::iterator t, const Instruction* const b
   // ++ThreadCountHist[count];
 }
 
+inline void Vm::_executeFrame(ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset, const uint64_t newThreadOffset) {
+  // run old threads at this offset
+  // uint32_t count = 0;
+
+  for ( ; t != Active.end(); ++t) {
+    _executeThread(base, t, cur, offset);
+    // ++count;
+  }
+
+  // create new threads only if offset matches newThreadOffset
+  if (offset == newThreadOffset) {
+    _executeNewThreads(base, t, cur, offset);
+  }
+
+  // ThreadCountHist.resize(count + 1, 0);
+  // ++ThreadCountHist[count];
+}
+
 inline void Vm::_cleanup() {
   Active.swap(Next);
   Next.clear();
@@ -586,12 +604,32 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   const byte* cur = beg;
   for ( ; cur + 65536 <= filterEnd; ) {
     const byte* chunkEnd = cur + 65536;
+    const byte* chunkStart = cur;
+    uint64_t chunkStartOffset = offset;
+    
+    // First pass: scan for accepted bigrams in this 64KB chunk
+    std::vector<uint64_t> newThreadOffsets;
+    for (const byte* scanCur = chunkStart; scanCur < chunkEnd; ++scanCur) {
+      if (filter[*reinterpret_cast<const uint16_t* const>(scanCur + Prog->FilterOff)]) {
+        newThreadOffsets.push_back(chunkStartOffset + (scanCur - chunkStart));
+      }
+    }
+    
+    // Second pass: execute frames with selective new thread creation
+    auto offsetIter = newThreadOffsets.begin();
     for ( ; cur < chunkEnd; ++cur, ++offset) {
       #ifdef LBT_TRACE_ENABLED
       open_frame_json(std::clog, offset, cur);
       #endif
 
-      _executeFrame(filter, Active.begin(), base, cur, offset);
+      // Advance offset iterator if we've passed the current offset
+      while (offsetIter != newThreadOffsets.end() && *offsetIter < offset) {
+        ++offsetIter;
+      }
+      
+      // Use new variant that only creates threads at specified offsets
+      uint64_t newThreadOffset = (offsetIter != newThreadOffsets.end()) ? *offsetIter : offset + 1; // offset + 1 ensures no match
+      _executeFrame(Active.begin(), base, cur, offset, newThreadOffset);
 
       #ifdef LBT_TRACE_ENABLED
       close_frame_json(std::clog, offset);

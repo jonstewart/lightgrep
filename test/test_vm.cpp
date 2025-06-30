@@ -574,3 +574,67 @@ TEST_CASE("stitchedText") {
   REQUIRE(SearchHit(2, 4, 0) == hits[0]);
 }
 
+TEST_CASE("executeFrameWithNewThreadOffset") {
+  ProgramPtr p(new Program(9, Instruction::makeRaw32(0)));
+  Program&   prog(*p);
+  // similar to runFrame test, but testing the newThreadOffset parameter
+  prog[0] = Instruction::makeJump(&prog[0], 2);
+  prog[2] = Instruction::makeByte('a');
+  prog[3] = Instruction::makeFork(&prog[3], 8);
+  prog[5] = Instruction::makeLabel(1);
+  prog[6] = Instruction::makeMatch();
+  prog[7] = Instruction::makeByte('b');
+  prog[8] = Instruction::makeByte('c');
+
+  prog.MaxLabel = 1;
+  prog.MaxCheck = 0;
+
+  prog.FilterOff = 0;
+  for (uint32_t i = 0; i < 256; ++i) {
+    prog.Filter.set((i << 8) | 'a');
+  }
+
+  const byte b = 'a';
+
+  // Test case 1: newThreadOffset matches current offset - should create new threads
+  {
+    Vm s(p);
+    s.executeFrame(&b, 0, 0, 0);
+    REQUIRE(1u == s.numActive());
+    REQUIRE(2u == s.numNext());
+    REQUIRE(Thread(&prog[7], 1, 0, 0) == s.next()[0]);
+    REQUIRE(Thread(&prog[8], Thread::NOLABEL, 0, Thread::NONE) == s.next()[1]);
+  }
+
+  // Test case 2: Integration test using the simpleLitMatch pattern
+  // This tests the search method which uses our modified first loop
+  {
+    // "ab" pattern like simpleLitMatch test
+    ProgramPtr p2(new Program(8, Instruction::makeRaw32(0)));
+    Program& prog2(*p2);
+    prog2[0] = Instruction::makeByte('a');
+    prog2[1] = Instruction::makeByte('b');
+    prog2[2] = Instruction::makeLabel(3);
+    prog2[3] = Instruction::makeMatch();
+    prog2[4] = Instruction::makeFork(&prog2[4], 7);
+    prog2[6] = Instruction::makeHalt();
+    prog2[7] = Instruction::makeFinish();
+
+    prog2.MaxLabel = 3;
+    prog2.MaxCheck = 0;
+
+    prog2.FilterOff = 0;
+    for (uint32_t i = 0; i < 256; ++i) {
+      prog2.Filter.set((i << 8) | 'a');
+    }
+
+    byte text[] = {'a', 'b', 'c'};
+    Vm v(p2);
+    std::vector<SearchHit> hits;
+    v.search(text, text + 3, 35, &mockCallback, &hits);
+    v.closeOut(&mockCallback, &hits);
+    REQUIRE(1u == hits.size());
+    REQUIRE(SearchHit(35, 37, 3) == hits[0]);
+  }
+}
+
