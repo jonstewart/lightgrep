@@ -1,0 +1,5 @@
+subdir('lib')
+subdir('cmd')
+# subdir('enc')
+# subdir('val')
+# subdir('what')

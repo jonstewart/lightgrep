@@ -18,18 +18,12 @@
 #include "byteset.h"
 #include "vm.h"
 #include "program.h"
-#include "bigram_fast_set.h"
 
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <memory>
-
-#if defined(__aarch64__) && defined(__ARM_NEON)
-#include <sys/sysctl.h>
-#include <unistd.h>
-#endif
 
 std::ostream& operator<<(std::ostream& out, const Thread& t) {
   out << "{ \"PC\":" << std::hex << t.PC
@@ -42,14 +36,6 @@ std::ostream& operator<<(std::ostream& out, const Thread& t) {
   return out;
 }
 
-#if defined(__aarch64__) && defined(__ARM_NEON)
-// Check if NEON is available at runtime
-inline bool isNeonAvailable() {
-  // On Apple Silicon (M1), NEON is always available
-  // On other ARM64 platforms, we could add more specific checks
-  return true;
-}
-#endif
 
 #ifdef LBT_TRACE_ENABLED
 
@@ -504,23 +490,6 @@ inline void Vm::_executeFrame(ThreadList::iterator t, const Instruction* const b
   // ++ThreadCountHist[count];
 }
 
-inline void Vm::_executeFrame(ThreadList::iterator t, const Instruction* const base, const byte* const cur, const uint64_t offset, const uint64_t newThreadOffset) {
-  // run old threads at this offset
-  // uint32_t count = 0;
-
-  for ( ; t != Active.end(); ++t) {
-    _executeThread(base, t, cur, offset);
-    // ++count;
-  }
-
-  // create new threads only if offset matches newThreadOffset
-  if (offset == newThreadOffset) {
-    _executeNewThreads(base, t, cur, offset);
-  }
-
-  // ThreadCountHist.resize(count + 1, 0);
-  // ++ThreadCountHist[count];
-}
 
 inline void Vm::_cleanup() {
   Active.swap(Next);
