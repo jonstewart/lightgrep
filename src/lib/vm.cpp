@@ -604,32 +604,21 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   const byte* cur = beg;
   for ( ; cur + 65536 <= filterEnd; ) {
     const byte* chunkEnd = cur + 65536;
-    const byte* chunkStart = cur;
-    uint64_t chunkStartOffset = offset;
     
-    // First pass: scan for accepted bigrams in this 64KB chunk
-    std::vector<uint64_t> newThreadOffsets;
-    for (const byte* scanCur = chunkStart; scanCur < chunkEnd; ++scanCur) {
-      if (filter[*reinterpret_cast<const uint16_t* const>(scanCur + Prog->FilterOff)]) {
-        newThreadOffsets.push_back(chunkStartOffset + (scanCur - chunkStart));
-      }
-    }
-    
-    // Second pass: execute frames with selective new thread creation
-    auto offsetIter = newThreadOffsets.begin();
+    // Process 64KB chunk with selective thread creation
+    // This maintains the structure for future filter optimization while being efficient
     for ( ; cur < chunkEnd; ++cur, ++offset) {
       #ifdef LBT_TRACE_ENABLED
       open_frame_json(std::clog, offset, cur);
       #endif
 
-      // Advance offset iterator if we've passed the current offset
-      while (offsetIter != newThreadOffsets.end() && *offsetIter < offset) {
-        ++offsetIter;
+      // Check filter and use new variant - this can be optimized later
+      // with your faster filter scanning implementation
+      if (filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)]) {
+        _executeFrame(Active.begin(), base, cur, offset, offset); // Create new threads
+      } else {
+        _executeFrame(Active.begin(), base, cur, offset, offset + 1); // No new threads
       }
-      
-      // Use new variant that only creates threads at specified offsets
-      uint64_t newThreadOffset = (offsetIter != newThreadOffsets.end()) ? *offsetIter : offset + 1; // offset + 1 ensures no match
-      _executeFrame(Active.begin(), base, cur, offset, newThreadOffset);
 
       #ifdef LBT_TRACE_ENABLED
       close_frame_json(std::clog, offset);
