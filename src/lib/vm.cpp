@@ -18,12 +18,18 @@
 #include "byteset.h"
 #include "vm.h"
 #include "program.h"
+#include "bigram_fast_set.h"
 
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <sys/sysctl.h>
+#include <unistd.h>
+#endif
 
 std::ostream& operator<<(std::ostream& out, const Thread& t) {
   out << "{ \"PC\":" << std::hex << t.PC
@@ -35,6 +41,15 @@ std::ostream& operator<<(std::ostream& out, const Thread& t) {
       << ", \"End\":" << t.End << " }";
   return out;
 }
+
+#if defined(__aarch64__) && defined(__ARM_NEON)
+// Check if NEON is available at runtime
+inline bool isNeonAvailable() {
+  // On Apple Silicon (M1), NEON is always available
+  // On other ARM64 platforms, we could add more specific checks
+  return true;
+}
+#endif
 
 #ifdef LBT_TRACE_ENABLED
 
@@ -599,6 +614,16 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   const std::bitset<256*256>& filter = Prog->Filter;
   const byte* const filterEnd = end - Prog->FilterOff - 1;
 
+#if defined(__aarch64__) && defined(__ARM_NEON)
+  // Use NEON-optimized bigram set when available for better performance
+  BigramFastCuckooSetV4 neonBigramSet;
+  bool useNeon = false;
+  
+  if (isNeonAvailable() && neonBigramSet.construct(filter)) {
+    useNeon = true;
+  }
+#endif
+
   uint64_t offset = startOffset;
 
   const byte* cur = beg;
@@ -612,9 +637,20 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
       open_frame_json(std::clog, offset, cur);
       #endif
 
-      // Check filter and use new variant - this can be optimized later
-      // with your faster filter scanning implementation
-      if (filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)]) {
+      // Check filter using NEON optimization when available
+      bool shouldCreateNewThreads;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+      if (useNeon) {
+        uint16_t bigram = *reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff);
+        shouldCreateNewThreads = neonBigramSet.contains(bigram);
+      } else {
+        shouldCreateNewThreads = filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)];
+      }
+#else
+      shouldCreateNewThreads = filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)];
+#endif
+      
+      if (shouldCreateNewThreads) {
         _executeFrame(Active.begin(), base, cur, offset, offset); // Create new threads
       } else {
         _executeFrame(Active.begin(), base, cur, offset, offset + 1); // No new threads
@@ -634,7 +670,24 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
     open_frame_json(std::clog, offset, cur);
     #endif
 
-    _executeFrame(filter, Active.begin(), base, cur, offset);
+    // Check filter using NEON optimization when available
+    bool shouldCreateNewThreads;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+    if (useNeon) {
+      uint16_t bigram = *reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff);
+      shouldCreateNewThreads = neonBigramSet.contains(bigram);
+    } else {
+      shouldCreateNewThreads = filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)];
+    }
+#else
+    shouldCreateNewThreads = filter[*reinterpret_cast<const uint16_t* const>(cur + Prog->FilterOff)];
+#endif
+    
+    if (shouldCreateNewThreads) {
+      _executeFrame(Active.begin(), base, cur, offset, offset); // Create new threads
+    } else {
+      _executeFrame(Active.begin(), base, cur, offset, offset + 1); // No new threads
+    }
 
     #ifdef LBT_TRACE_ENABLED
     close_frame_json(std::clog, offset);
