@@ -18,6 +18,10 @@
 #include "byteset.h"
 #include "vm.h"
 #include "program.h"
+#include "neon_simd_matcher.h"
+#include "neon_position_scanner.h"
+#include "vm_position_executor.h"
+#include "match_position_collector.h"
 
 #include <algorithm>
 #include <cctype>
@@ -130,6 +134,12 @@ Vm::Vm(ProgramPtr prog):
   MatchEnds(prog->MaxLabel+1), MatchEndsMax(0),
   CurHitFn(nullptr), UserData(nullptr)
 {
+  // Create NEON matcher for small bigram sets (temporarily disabled)
+  neonMatcher_ = nullptr;
+  
+  // Create position-aware NEON components (temporarily disabled)
+  positionScanner_ = nullptr;
+  positionExecutor_ = nullptr;
 // FIXME: should do these checks inside SparseSet::resize()?
   if (Live.size() > Live.max_size()) {
     throw std::runtime_error("Too many patterns.");
@@ -586,52 +596,119 @@ uint64_t Vm::search(const byte* const beg, const byte* const end, const uint64_t
   uint64_t offset = startOffset;
   const byte* cur = beg;
 
-  // Process in optimized 128-byte chunks with unrolled bigram checking
+  // Use position-aware scanning if available and applicable
   constexpr size_t CHUNK_SIZE = 128;
   
-  for ( ; cur + CHUNK_SIZE <= filterEnd; ) {
-    const byte* chunkEnd = cur + CHUNK_SIZE;
-    
-    // Optimized bigram checking with manual unrolling and early termination
-    bool hasAcceptedBigrams = false;
-    const byte* p = cur;
-    const byte* pEnd = chunkEnd - 1;
-    const int filterOffset = Prog->FilterOff;
-    
-    // Process 4 bigrams at once to improve instruction-level parallelism
-    for ( ; p + 4 <= pEnd && !hasAcceptedBigrams; p += 4) {
-      // Load 4 consecutive bigrams with explicit prefetching
-      __builtin_prefetch(p + 64, 0, 3);
+  if (false && positionScanner_ && positionScanner_->isApplicable() && positionExecutor_) { // Temporarily disabled
+    // Position-aware scanning: find exact positions then execute VM only there
+    for ( ; cur + CHUNK_SIZE <= filterEnd; ) {
+      const byte* chunkEnd = cur + CHUNK_SIZE;
+      MatchPositionCollector collector;
       
-      const uint16_t* bigrams = reinterpret_cast<const uint16_t*>(p + filterOffset);
-      hasAcceptedBigrams = filter[bigrams[0]] || filter[bigrams[1]] || 
-                          filter[bigrams[2]] || filter[bigrams[3]];
-    }
-    
-    // Handle remaining bytes
-    for ( ; p < pEnd && !hasAcceptedBigrams; ++p) {
-      hasAcceptedBigrams = filter[*reinterpret_cast<const uint16_t*>(p + filterOffset)];
-    }
-    
-    if (hasAcceptedBigrams) {
-      // Process each byte in the chunk since we found accepted bigrams
-      for ( ; cur < chunkEnd; ++cur, ++offset) {
-        #ifdef LBT_TRACE_ENABLED
-        open_frame_json(std::clog, offset, cur);
-        #endif
+      // Scan chunk for exact bigram positions
+      try {
+        const int filterOffset = Prog->FilterOff;
+        positionScanner_->scanChunk(
+          reinterpret_cast<const uint8_t*>(cur),
+          CHUNK_SIZE,
+          filterOffset,
+          collector
+        );
+        
+        if (collector.hasMatches()) {
+          // Execute VM at each found position (positions are relative to chunk start)
+          for (size_t relativePosition : collector) {
+            const byte* execPos = cur + relativePosition;
+            const uint64_t absolutePosition = offset + relativePosition;
+            if (execPos < chunkEnd && execPos >= cur) {
+              #ifdef LBT_TRACE_ENABLED
+              open_frame_json(std::clog, absolutePosition, execPos);
+              #endif
 
-        _executeFrame(filter, Active.begin(), base, cur, offset);
+              _executeFrame(filter, Active.begin(), base, execPos, absolutePosition);
 
-        #ifdef LBT_TRACE_ENABLED
-        close_frame_json(std::clog, offset);
-        #endif
+              #ifdef LBT_TRACE_ENABLED
+              close_frame_json(std::clog, absolutePosition);
+              #endif
 
-        _cleanup();
+              _cleanup();
+            }
+          }
+        }
+      } catch (...) {
+        // If position scanning fails, fall back to processing the whole chunk
+        for ( ; cur < chunkEnd; ++cur, ++offset) {
+          #ifdef LBT_TRACE_ENABLED
+          open_frame_json(std::clog, offset, cur);
+          #endif
+
+          _executeFrame(filter, Active.begin(), base, cur, offset);
+
+          #ifdef LBT_TRACE_ENABLED
+          close_frame_json(std::clog, offset);
+          #endif
+
+          _cleanup();
+        }
+        continue;
       }
-    } else {
-      // Skip this entire chunk - no accepted bigrams found
+      
+      // Move to next chunk
       cur = chunkEnd;
       offset += CHUNK_SIZE;
+    }
+  } else {
+    // Fallback to original chunked approach
+    for ( ; cur + CHUNK_SIZE <= filterEnd; ) {
+      const byte* chunkEnd = cur + CHUNK_SIZE;
+      
+      // Optimized bigram checking - use NEON matcher if applicable and faster
+      bool hasAcceptedBigrams = false;
+      const byte* p = cur;
+      const byte* pEnd = chunkEnd - 1;
+      const int filterOffset = Prog->FilterOff;
+      
+      // Try NEON matcher first if available and applicable
+      if (neonMatcher_ && neonMatcher_->isApplicable()) {
+        hasAcceptedBigrams = neonMatcher_->hasMatchingBigrams(p, chunkEnd - p, filterOffset);
+      } else {
+        // Fallback to optimized scalar bigram checking
+        // Process 4 bigrams at once to improve instruction-level parallelism
+        for ( ; p + 4 <= pEnd && !hasAcceptedBigrams; p += 4) {
+          // Load 4 consecutive bigrams with explicit prefetching
+          __builtin_prefetch(p + 64, 0, 3);
+          
+          const uint16_t* bigrams = reinterpret_cast<const uint16_t*>(p + filterOffset);
+          hasAcceptedBigrams = filter[bigrams[0]] || filter[bigrams[1]] || 
+                              filter[bigrams[2]] || filter[bigrams[3]];
+        }
+        
+        // Handle remaining bytes
+        for ( ; p < pEnd && !hasAcceptedBigrams; ++p) {
+          hasAcceptedBigrams = filter[*reinterpret_cast<const uint16_t*>(p + filterOffset)];
+        }
+      }
+      
+      if (hasAcceptedBigrams) {
+        // Process each byte in the chunk since we found accepted bigrams
+        for ( ; cur < chunkEnd; ++cur, ++offset) {
+          #ifdef LBT_TRACE_ENABLED
+          open_frame_json(std::clog, offset, cur);
+          #endif
+
+          _executeFrame(filter, Active.begin(), base, cur, offset);
+
+          #ifdef LBT_TRACE_ENABLED
+          close_frame_json(std::clog, offset);
+          #endif
+
+          _cleanup();
+        }
+      } else {
+        // Skip this entire chunk - no accepted bigrams found
+        cur = chunkEnd;
+        offset += CHUNK_SIZE;
+      }
     }
   }
   

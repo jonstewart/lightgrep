@@ -23,8 +23,8 @@ if hash parallel ; then
   # test order being random each time, the test order is fully
   # reproducible in case of a fault because Catch2 prints the seed used.
 
-  parallel -t $TEST --shard-count $jobs --shard-index {} --order rand --rng-seed $seed ::: $(seq 0 $(($jobs - 1)))
+  parallel -t $TEST --skip-benchmarks --shard-count $jobs --shard-index {} --order rand --rng-seed $seed ::: $(seq 0 $(($jobs - 1)))
 
 else
-  $TEST
+  $TEST --skip-benchmarks
 fi

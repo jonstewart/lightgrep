@@ -71,7 +71,10 @@ src_lib_liblightgrepint_la_SOURCES = \
 	include/hitwriter.h \
 	include/instructions.h \
 	include/lg_app.h \
+	include/match_position_collector.h \
 	include/matchgen.h \
+	include/neon_position_scanner.h \
+	include/neon_simd_matcher.h \
 	include/nfabuilder.h \
 	include/nfaoptimizer.h \
 	include/options.h \
@@ -105,6 +108,7 @@ src_lib_liblightgrepint_la_SOURCES = \
 	include/vectorfamily.h \
 	include/vm.h \
 	include/vm_interface.h \
+	include/vm_position_executor.h \
 	src/lib/ascii.cpp \
 	src/lib/automata.cpp \
 	src/lib/byteencoder.cpp \
@@ -121,7 +125,10 @@ src_lib_liblightgrepint_la_SOURCES = \
 	src/lib/instructions.cpp \
 	src/lib/lightgrep_c_api.cpp \
 	src/lib/lightgrep_c_util.cpp \
+	src/lib/match_position_collector.cpp \
 	src/lib/matchgen.cpp \
+	src/lib/neon_position_scanner.cpp \
+	src/lib/neon_simd_matcher.cpp \
 	src/lib/nfabuilder.cpp \
 	src/lib/nfaoptimizer.cpp \
 	src/lib/oceencoder.cpp \
@@ -141,6 +148,7 @@ src_lib_liblightgrepint_la_SOURCES = \
 	src/lib/utfbase.cpp \
 	src/lib/utility.cpp \
 	src/lib/vm.cpp \
+	src/lib/vm_position_executor.cpp \
 	src/lib/decoders/decoder.cpp \
 	src/lib/decoders/decoderfactory.cpp \
 	src/lib/decoders/ocedecoder.cpp
@@ -304,7 +312,10 @@ test_test_SOURCES = \
 	test/test_hitwriter.cpp \
 	test/test_instructions.cpp \
 	test/test_main.cpp \
+	test/test_match_position_collector.cpp \
 	test/test_matchgen.cpp \
+	test/test_neon_benchmark.cpp \
+	test/test_neon_position_scanner.cpp \
 	test/test_nfabuilder.cpp \
 	test/test_nfaoptimizer.cpp \
 	test/test_oceencoder.cpp \

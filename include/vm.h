@@ -18,6 +18,7 @@
 #pragma once
 
 #include <bitset>
+#include <memory>
 #include <set>
 #include <vector>
 
@@ -25,6 +26,9 @@
 #include "sparseset.h"
 #include "vm_interface.h"
 #include "thread.h"
+#include "neon_simd_matcher.h"
+#include "neon_position_scanner.h"
+#include "vm_position_executor.h"
 
 class Vm: public VmInterface {
 public:
@@ -128,4 +132,11 @@ private:
 
   HitCallback CurHitFn;
   void* UserData;
+  
+  // NEON SIMD matcher for small bigram sets
+  std::unique_ptr<NeonSIMDMatcher> neonMatcher_;
+  
+  // Position-aware NEON scanner and executor
+  std::unique_ptr<NeonPositionScanner> positionScanner_;
+  std::unique_ptr<VmPositionExecutor> positionExecutor_;
 };

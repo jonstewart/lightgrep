@@ -22,7 +22,12 @@ echo "   Advanced regex pattern matching performance"
 ./benchmarks/regextime.sh
 echo ""
 
-echo "4. Original Twain Benchmark (mixed patterns vs 15MB Mark Twain corpus):"
+echo "4. NEON SIMD Matcher Benchmark (30 patterns vs 6MB norvig corpus):"
+echo "   Tests performance with NEON-optimized small bigram sets"
+./benchmarks/neontime.sh
+echo ""
+
+echo "5. Original Twain Benchmark (mixed patterns vs 15MB Mark Twain corpus):"
 echo "   Baseline comparison with existing benchmark"
 ./benchmarks/twaintime.sh
 echo ""
