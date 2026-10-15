@@ -358,6 +358,7 @@ endif
 
 test_test_CPPFLAGS = $(AM_CPPFLAGS) $(CATCH2_CPPFLAGS)
 test_test_CFLAGS = $(AM_CFLAGS) $(CATCH2_CFLAGS)
+test_test_CXXFLAGS = $(AM_CXXFLAGS) $(CATCH2_CFLAGS)
 test_test_LDADD = $(LG_LIB_INT) $(ICU_LIBS) $(BOOST_PROGRAM_OPTIONS_LIB) $(BOOST_ASIO_LIB) $(CATCH2_LIBS) $(STDCXX_LIB)
 
 pkgconfigdir = $(libdir)/pkgconfig
