@@ -29,7 +29,7 @@
 class Executor {
 public:
   Executor(size_t n = std::thread::hardware_concurrency()):
-    service_(n), work_(new boost::asio::io_service::work(service_))
+    service_(n), work_(boost::asio::make_work_guard(service_))
   {
     for (size_t i = 0; i < n; ++i) {
       pool_.emplace_back([this](){ service_.run(); });
@@ -37,17 +37,17 @@ public:
   }
 
   ~Executor() {
-    delete work_;
+    work_.reset();
     for (std::thread& t : pool_) { t.join(); }
   }
 
   template <typename F>
   void submit(F task) {
-    service_.post(task);
+    boost::asio::post(service_, task);
   }
 
 protected:
   std::vector<std::thread> pool_;
-  boost::asio::io_service service_;
-  boost::asio::io_service::work* work_;
+  boost::asio::io_context service_;
+  boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work_;
 };
