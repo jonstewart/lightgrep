@@ -58,7 +58,7 @@
 /src/java/target
 /src/java/jni/jlightgrep.h
 /src/java/jni/com_lightboxtechnologies_lightgrep_*.h
-/src/lib/lightgrep.pc
+/lightgrep.pc
 /src/lib/re_grammar.cpp
 /src/lib/re_grammar.output
 /src/val/val
